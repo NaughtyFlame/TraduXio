@@ -80,6 +80,8 @@ feature 'Search for a concordance' do
     selected_text=text[startIndex..endIndex-1]
     debug "selected text is #{selected_text}"
     select_and_search_concordance getVersions[0],block,startIndex,endIndex
+    expect(page).to have_css("body#concordance")
+    debug_screen "concordance"
     expect(page).to have_content selected_text
     expect(page).to have_in_bold selected_text
   end

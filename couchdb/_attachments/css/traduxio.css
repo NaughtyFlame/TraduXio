@@ -48,7 +48,6 @@ body,html,input,textarea {
 
 #body {
   position:relative;
-  top: 2.5em;
 }
 
 #main {
@@ -58,7 +57,6 @@ body,html,input,textarea {
 
 #header {
   z-index:100;
-  position: fixed;
   top: 0;
   width: 100%;
   font-size:0.85em;
@@ -113,6 +111,12 @@ body,html,input,textarea {
   box-shadow: 0 0 8px white;
 }
 
+#nav li.active {
+    border-top: 1px darkgrey solid;
+    background-color: #888;
+    border-bottom: 6px #888 solid;
+}
+
 #header form.concordance {
   float:right;
   margin-right:2em;
@@ -159,6 +163,23 @@ li.closed > ul {
   width:100%;
 }
 
+#session-info {
+  float:right;
+}
+
+#session-info .logout {
+  cursor:pointer;
+}
+
+#session-info input.username,
+#session-info input.password {
+  width:10em;
+}
+
+#session-info input.bad {
+  border-color:red;
+}
+
 /* ====
 CSS hack to render natural stuff...
 http://kizu.ru/en/fun/rotated-text/
@@ -187,3 +208,21 @@ http://kizu.ru/en/fun/rotated-text/
    margin-top: 100%;
  }
 /* ==== */
+
+@media print {
+  #header > *,
+  #header div.top > *,
+  #footer {
+    display: none;
+  }
+  #header .top,
+  #header div.top h1 {
+    display: inherit;
+  }
+
+  #header div.top h1 {
+    background-color: none;
+    font-size: 2em;
+    font-weight: bold;
+  }
+}

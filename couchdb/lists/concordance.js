@@ -1,12 +1,16 @@
 function(head, req) {
+  // !code lib/traduxio.js
   // !code lib/mustache.js
   // !code lib/hexapla.js
-  // !code lib/path.js
-  // !code localization.js
+
+  //https://github.com/benjamingr/RegExp.escape
+  RegExp.escape = function(str) {
+      return String(str).replace(/[.?*+^$[\]\\(){}|-]/g, "\\$&");
+  };
 
   function highlight(context, pattern) {
     //TODO safer so that HTML is not matched
-    const regexp = new RegExp("("+pattern+")", "gi");
+    const regexp = new RegExp("("+RegExp.escape(pattern)+")", "gi");
     return context.replace(regexp, "<b>$1</b>");
   }
 
@@ -19,12 +23,15 @@ function(head, req) {
     };
   }
 
+  var MAXRESULTS=100;
+
   function push(occurrences, context, mapping, line_number, original_header, translation_header) {
     var hexapla = new Hexapla();
     hexapla.addVersion(context);
     hexapla.addVersion(mapping);
     var unit = hexapla.getUnitVersions(line_number,true).versions;
-    if (unit[1] && unit[1].trim()!=="") {
+    if (unit[1] && unit[1].trim()!=="" && occurrences.length<MAXRESULTS) {
+      log("pushing "+line_number);
       var html = hexapla.getUnitVersions(line_number,false).versions;
       occurrences.push({
         context: highlight(html[0], req.query.query),
@@ -48,12 +55,11 @@ function(head, req) {
   var data = {
     lang: req.query.language,
     query: req.query.query,
-    occurrences:[]
+    occurrences:[],
+    glossary_entries:[]
   };
   if (req.query.query) {
     while (row = getRow()) {
-      var translation_id = row.value.translation;
-      var line_number = row.value.unit;
       var work = row.doc;
       var original = (work.text)? {
         id: "original",
@@ -61,29 +67,38 @@ function(head, req) {
       } : null;
       var original_header = {
         work_id: work._id,
-        creator: work.creator?work.creator:i18n["i_no_author"],
-        title: work.title?work.title:i18n["i_no_title"],
+        creator: work.creator?work.creator:"Anonymus",
+        title: work.title,
         publisher: work.publisher,
         date: work.date
       };
-      if (translation_id) {
-        var translation = getTranslation(work, translation_id);
-        var translation_header = getHeaders(work, translation_id);
-        // translation >> original
-        if (original) {
-          push(data.occurrences, translation, original, line_number, original_header, translation_header);
-        }
-        // translation >> translations
-        for (var t in work.translations) {
-          if (t!=translation_id) {
-            push(data.occurrences, translation, getTranslation(work, t), line_number, original_header, [translation_header, getHeaders(work, t)]);
+      if (row.value.unit) {
+        var translation_id = row.value.translation;
+        var line_number = row.value.unit;
+        if (translation_id) {
+          var translation = getTranslation(work, translation_id);
+          var translation_header = getHeaders(work, translation_id);
+          // translation >> original
+          if (original) {
+            push(data.occurrences, translation, original, line_number, original_header, translation_header);
+          }
+          // translation >> translations
+          for (var t in work.translations) {
+            if (t!=translation_id) {
+              push(data.occurrences, translation, getTranslation(work, t), line_number, original_header, [translation_header, getHeaders(work, t)]);
+            }
+          }
+        } else {
+          // original >> translations
+          for (var t in work.translations) {
+            push(data.occurrences, original, getTranslation(work, t), line_number, original_header, getHeaders(work, t));
           }
         }
-      } else {
-        // original >> translations
-        for (var t in work.translations) {
-          push(data.occurrences, original, getTranslation(work, t), line_number, original_header, getHeaders(work, t));
-        }
+      } else if (row.value.hasOwnProperty("glossary_entry")) {
+          var glossary_entry=row.value.glossary_entry;
+          var mapping=glossary_entry.src.sentence;
+          var context=glossary_entry.target.sentence;
+          data.glossary_entries.push({context:highlight(context,req.query.query),mapping:mapping,original:original_header,glossary_entry:glossary_entry});
       }
     }
   }
@@ -91,9 +106,8 @@ function(head, req) {
   data.css=true;
   data.script=true;
   data.prefix="..";
-  data.language=getPreferredLanguage();
-  data.i18n=localized(data.language);
-  data.i_trad = data.i18n.i_trad;
+  data.i18n=localized();
+  data.page_title=data.i18n["i_concordance"];
 
   return Mustache.to_html(this.templates.concordance, data, this.templates.partials);
 }

@@ -8,6 +8,15 @@ table.concordance tr:nth-child(even) td {
   background-color: #ddd;
 }
 
+table.concordance tr.glossary td {
+  background-color: #eef;
+}
+
+table.concordance tr.glossary:nth-child(even) td.glossary {
+  background-color: #ccf;
+}
+
+
 table.concordance tr td:last-child {
   font-size: 0.9em;
   text-align: right;
@@ -46,12 +55,6 @@ td.metadata a {
 td.metadata a:hover {
   color:#333;
   text-decoration:underline;
-}
-
-#nav li.concordance {
-  background-color: white;
-  color: black;
-  border-bottom: 6px white solid;
 }
 
 #filters {

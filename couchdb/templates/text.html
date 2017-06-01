@@ -1,0 +1,16 @@
+{{> header}}
+<h1>
+  {{work_title}} – {{work_creator}} {{#work_date}}– {{work_date}}{{/work_date}} <br/>
+</h1>
+<h2>
+{{#isTrad}}{{i18n.i_trad}} {{work.creator}} {{#work.date}}– {{work.date}}{{/work.date}}{{/isTrad}}
+{{^isTrad}}{{i18n.i_original}}{{/isTrad}}
+</h2>
+
+{{#text}}
+<p>{{{.}}}</p>
+{{/text}}
+
+<a href="{{back}}">{{i18n.i_back}}</a>
+
+{{> footer}}

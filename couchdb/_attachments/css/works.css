@@ -82,12 +82,6 @@ div #lead > * {
   font-size: 14px;
 }
 
-#nav li.work {
-  color: black;
-  background-color: white;
-  border-bottom: 3px white solid;
-}
-
 .concordance {
   display: none;
 }

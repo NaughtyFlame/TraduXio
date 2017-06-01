@@ -162,7 +162,7 @@
             }
           } else {
             var text=element.textContent;
-            if (element.nodeType==1 && element.tagName=="BR") text="\n";
+            //if (element.nodeType==1 && element.tagName=="BR") text="\n";
             if (toRange.start>=0 && toRange.start<text.length) {
               toRange.native.setStart(element,toRange.start);
               toRange.startElement=element;

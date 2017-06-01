@@ -1,7 +1,7 @@
 function(head, req) {
+  // !code lib/traduxio.js
   // !code lib/mustache.js
-  // !code lib/path.js
-  // !code localization.js
+
   start({headers: {"Content-Type": "text/html;charset=utf-8"}});
   var data = {languages:[]};
   var languageData = null;
@@ -30,7 +30,7 @@ function(head, req) {
       authorData  = {
         name: a,
         works: []
-      }
+      };
       lastAuthor= a;
     }
     authorData.works.push({
@@ -49,7 +49,7 @@ function(head, req) {
   data.script=true;
   data.css=true;
   data.prefix="..";
-  data.language=getPreferredLanguage();
-  data.i18n=localized(data.language);
+  data.i18n=localized();
+  data.page_title=data.i18n["i_works_list"];
   return Mustache.to_html(this.templates.works, data,this.templates.partials);
 }

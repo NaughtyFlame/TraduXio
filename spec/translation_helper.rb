@@ -1,29 +1,41 @@
-def create_translation(version)
+def create_translation(version,language)
   debug "click on add version button"
   page.find("a#addVersion").trigger(:click)
   debug "fill the creator #{version}"
-  fill_input "[name='work-creator']", version
+  within "#addPanel" do
+    fill_input "[name='work-creator']", version
+    fill_select :language, language
+  end
   begin
-    wait_for_ajax
     debug "click on create button"
-    page.find('input[name=do-create]').trigger(:click)
+    page.find('#addPanel input[name=do-create]').trigger(:click)
     debug "wait #{version} to appear"
   end until has_translation?(version)
   debug "created #{version}"
+end
+
+def fill_translation_field (field,value)
+  fill_field field,value
+  wait_for_ajax
+end
+
+def fill_translation_select (field,option)
+  fill_select field,option
+  wait_for_ajax
 end
 
 def edit_translation_metadata(version,options)
   raise "Must pass a hash" if not options.is_a?(Hash)
   previously_in_edit_mode=edit_translation version
   within (selvers(version,"thead th.pleat.open")) do
-    fill_field(:date,options[:date]) if options.has_key?(:date)
-    fill_field(:title,options[:title]) if options.has_key?(:title)
-    fill_select(:language,options[:language]) if options.has_key?(:language)
+    fill_translation_field(:date,options[:date]) if options.has_key?(:date)
+    fill_translation_field(:title,options[:title]) if options.has_key?(:title)
+    fill_translation_select(:language,options[:language]) if options.has_key?(:language)
     if version!=:original
-      fill_field(:'work-creator',options[:creator]) if options.has_key?(:creator)
-      fill_field(:creator,options[:author]) if options.has_key?(:author)
+      fill_translation_field(:'work-creator',options[:creator]) if options.has_key?(:creator)
+      fill_translation_field(:creator,options[:author]) if options.has_key?(:author)
     else
-      fill_field(:'work-creator',options[:author]) if options.has_key?(:author)
+      fill_translation_field(:'work-creator',options[:author]) if options.has_key?(:author)
     end
   end
   if options.has_key?(:author)
@@ -43,7 +55,7 @@ end
 
 def create_random_translation
   data=random_translation_metadata
-  create_translation data[:author]
+  create_translation data[:author], data[:language]
   #check if translation is open after being created (with ?edit url modifier)
   expect(page).to have_open_translation(data[:author])
   edit_translation_metadata(data[:author],data)
@@ -54,6 +66,7 @@ end
 
 def check_translation_metadata(metadata)
   translation=find_open_translation metadata[:author]
+  read_translation metadata[:author]
   expect(translation).to have_metadata(:date,metadata[:date]) if metadata.has_key?(:date)
   expect(translation).to have_metadata(:title,metadata[:title]) if metadata.has_key?(:title)
   expect(translation).to have_metadata(:creator,metadata[:author]) if metadata.has_key?(:author)

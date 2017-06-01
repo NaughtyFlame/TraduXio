@@ -1,3 +1,5 @@
+var getTranslated=Traduxio.getTranslated;
+
 $.fn.toggleName = function(name1, name2) {
   this.val(
     (this.val()==name1)? name2 : name1
@@ -10,11 +12,92 @@ $.fn.toggleText = function(text1, text2) {
   );
 };
 
+function browseGlossary(callback) {
+  var args=Array.slice ? Array.slice(arguments) : Array.prototype.slice.call(arguments);
+  if (glossary) {
+    var language,sentence;
+    for (language in glossary) {
+      for (sentence in glossary[language]) {
+        args.shift();
+        args.unshift(getGlossaryEntry(language,sentence));
+        callback.apply(this,args);
+      }
+    }
+  }
+}
+
+function getGlossaryEntry(language,sentence) {
+  if (glossary && glossary[language] && glossary[language][sentence] ) {
+    return {src_sentence:sentence,src_language:language,targets:glossary[language][sentence]};
+  } else {
+    return false;
+  }
+}
+
+function addGlossaryEntry(glossaryEntry) {
+  with (glossaryEntry) {
+    glossary[src_language]=
+        glossary[src_language] || {};
+    glossary[src_language][src_sentence]=
+        glossary[src_language][src_sentence] || {};
+    if (!Object.keys(glossary[src_language][src_sentence]).length) {
+      displayGlossaryAllText(glossaryEntry);
+    }
+    glossary[src_language][src_sentence][target_language]=target_sentence;
+  }
+}
+
+function displayGlossaryAllText(glossaryEntry,version) {
+  var versions;
+  if (version) versions=[version];
+  else versions=getVersions();
+  versions.forEach(function(version) {
+    displayGlossary(glossaryEntry,$(".unit",find(version)));
+  });
+}
+
+function displayGlossary(glossaryEntry,element) {
+  var l=element.getLanguage();
+  if (l==glossaryEntry.src_language) {
+    $("span.temp.glossary",
+      element.highlight(glossaryEntry.src_sentence,"temp glossary"))
+    .data("sentence",glossaryEntry.src_sentence)
+    .removeClass("temp");
+  }
+}
+
+function removeGlossary(glossaryEntry) {
+  var g=getGlossaryEntry(glossaryEntry.src_language,glossaryEntry.src_sentence);
+  if (g) {
+    delete glossary[glossaryEntry.src_language][glossaryEntry.src_sentence][glossaryEntry.target_language];
+    if (!Object.keys(glossary[glossaryEntry.src_language][glossaryEntry.src_sentence]).length) {
+      getVersions().forEach(function(version) {
+        var v=find(version);
+        if (v.getLanguage()==glossaryEntry.src_language) {
+          v.removeHighlight("glossary",glossaryEntry.src_sentence);
+        }
+      });
+    }
+  }
+}
+
+function editGlossaryEntry(glossaryEntry,language) {
+  $("form#addGlossaryForm [name='src']").val(glossaryEntry.src_sentence);
+  $("form#addGlossaryForm [name='target']").val(glossaryEntry.targets && glossaryEntry.targets[language] ? glossaryEntry.targets[language] : "");
+  $("form#addGlossaryForm [name='src_language']").val(glossaryEntry.src_language);
+  $("form#addGlossaryForm [name='target_language']").val(language);
+  if (!$("form#addGlossaryForm").is(":visible")) {
+    toggleGlossaryEntry();
+  }
+}
+
 function request(options) {
   return $.ajax(options)
     .retry({times:3,statusCodes:[0,409]})
-    .fail(function () {
-      alert("request failed");
+    .fail(function (jqXHR) {
+      if (jqXHR.responseText) {
+        alert("request failed "+jqXHR.responseText);
+      }
     });
 }
 
@@ -24,12 +107,6 @@ function find(version) {
 
 function findPleat(version) {
   return $(".pleat.close[data-version='"+version+"']");
-}
-
-function getTranslated(name) {
-  //show function only sends requested i18n elements, so need to modify the
-  //js_i18n_elements array to get them here (and load them inside the template)
-  return i18n[name] || name;
 }
 
 $.fn.getHeight = function() {
@@ -90,7 +167,7 @@ function positionSplits(context) {
     var currTd=$(this).closest("td");
     var line=$(this).data("line");
     var position={};
-    var tableLine=$("tr#line-"+line);
+    var tableLine=findLine(line);
     if (tableLine.find("td:visible").length>0) {
       position=tableLine.find("td:visible").position();
       $(this).removeClass("dynamic");
@@ -167,18 +244,19 @@ function toggleShow(e) {
   }
 }
 
-function getDocId() {
-  return $("#hexapla").data("id");
-}
-
 $.fn.isEdited = function() {
   return this.hasClass("edit");
 };
 
 function stringToHtml(formattedString) {
-   return formattedString
-    .replace("<","&lt").replace(">","&gt;")
-    .replace(/\n$/,"\n ").replace(/\n/g, "<br>");
+  formattedString = formattedString || "";
+  return formattedString
+       .replace(/</g,"&lt")
+       .replace(/>/g,"&gt;")
+       .replace(/^ /gm,"&nbsp;")
+       .replace(/  /g," &nbsp;")
+       .replace(/\n/g, "<br>\n")
+       ;
 }
 
 $.fn.getVersion = function(ancestor) {
@@ -234,22 +312,19 @@ function toggleEdit (e) {
       top.css("width",doc.first().outerWidth()+"px");
     }
     doc.find("input.edit").toggleName(getTranslated("i_read"), getTranslated("i_edit"));
+    fixScriptDirection(version);
   }
   if (getVersions().length==1) {
     if (edited) {
       var fulltext=$("textarea.fulltext").val();
       $("textarea.fulltext").prop("disabled",true);
       var lines=fulltext.split("\n\n");
-      var id=getDocId();
+      var id=Traduxio.getId();
       var update=function(){
         $("#hexapla tbody tr.fulltext").hide();
         $("#hexapla tbody tr:not(.fulltext)").remove();
         lines.forEach(function(line,i) {
-          var newUnit=$("<div/>");
-          var text=$("<div>").addClass("text");
-          text.html(stringToHtml(line));
-          newUnit.append(text);
-          newUnit.addClass("unit").attr("data-version",version);
+          var newUnit=createUnit(line).attr("data-version",version);
           var newTd=$("<td>").addClass("pleat open").attr("data-version",version)
             .append($("<div>").addClass("box-wrapper").append(newUnit));
           newUnit.setSize(1);
@@ -264,7 +339,7 @@ function toggleEdit (e) {
           type:"PUT",
           data:JSON.stringify({text:lines}),
           contentType: "text/plain",
-          url:"work/"+id+"?version="+version
+          url:"work/"+id+"?version="+encodeURIComponent(version)
         })
         .done(update)
         .always(function() {
@@ -276,28 +351,38 @@ function toggleEdit (e) {
     } else {
       $("#hexapla tbody tr:not(.fulltext)").hide();
       $("#hexapla tbody tr.fulltext").show();
-      $("textarea.fulltext").prop("disabled",false);
+      var fulltext=[];
+      findUnits(version).find("textarea").not(".fulltext").each(function() {
+        fulltext.push($(this).val());
+      });
+      $("textarea.fulltext").val(fulltext.join("\n\n"));
+      autoSize.apply($("textarea.fulltext").prop("disabled",false));
       applyToggle();
     }
   } else {
     if (edited) {
-      var unitsOk=0;
       function finish() {
         units.find(".split").remove();
         units.removeClass("edit");
         applyToggle();
       }
-      units.each(function() {
-        var unit=$(this);
-        var textarea=unit.find("textarea");
-        saveUnit.apply(textarea,[function () {
-          unit.find(".text").html(stringToHtml(textarea.val()));
-          unitsOk++;
-          if (unitsOk==units.length) {
-            finish();
-          }
-        }]);
-      });
+      var unitsOk=0,
+          toSave=units.find("textarea.dirty"),
+          length=toSave.length;
+      if (length) {
+        toSave.each(function() {
+          var textarea=$(this);
+          saveUnit.apply(textarea,[function () {
+            textarea.parents(".unit").find(".text").html(stringToHtml(textarea.val()));
+            unitsOk++;
+            if (unitsOk==length) {
+              finish();
+            }
+          }]);
+        });
+      } else {
+        finish();
+      }
     } else {
       units.find("textarea").prop("disabled",false);
       units.addClass("edit");
@@ -306,7 +391,7 @@ function toggleEdit (e) {
             createSplits($(this));
           });
       }
-      positionSplits();
+      positionSplits(units);
       applyToggle();
     }
   }
@@ -327,10 +412,10 @@ function fillLanguages(controls,callback) {
     });
     controls.each(function(i,c) {
       var control=$(c);
-      control.val(control.data("language"));
-      if (control.prop("placeholder")) {
-        control.prepend($("<option>").val("").text(control.prop("placeholder")));
+      if (control.attr("placeholder")) {
+        control.prepend($("<option>").val("").text(control.attr("placeholder")).prop("disabled",true));
       }
+      control.val(control.data("language"));
     });
     if (typeof callback=="function")
       callback();
@@ -355,26 +440,46 @@ function updateDocInfo(data) {
   }
 }
 
-function updateUrl() {
-  var opened=$("thead th.open:visible").not(".edit")
-    .map(function() {
-      return $(this).getVersion("th");
-    }).toArray().join("|");
-  var edited=$("thead th.edit:visible")
-    .map(function() {
-      return $(this).getVersion("th");
-    }).toArray().join("|");
+function fixScriptDirection(version,language) {
+  language=language || find(version).find(".language").first().data("id");
+  if (language) {
+    getLanguageNames(function() {
+      if (languagesNames[language] && languagesNames[language].rtl)
+        findUnits(version).css("direction","rtl");
+      else findUnits(version).css("direction","ltr");
+    });
+  }
+}
+
+function getUrlOptions(opened,edited) {
   var suffix="";
   if (opened) {
-    suffix+="open="+encodeURIComponent(opened);
+    suffix+="open="+encodeURIComponent(opened.join("|"));
   }
   if (edited) {
     suffix = suffix ? suffix + "&" :"";
-    suffix+="edit="+encodeURIComponent(edited);
+    suffix+="edit="+encodeURIComponent(edited.join("|"));
   }
   suffix = suffix ? "?"+suffix:"";
+  return suffix;
+}
 
-  window.history.pushState("object or string","",getDocId()+suffix);
+function getOpenedVersions() {
+  return $("thead th.open:visible").not(".edit")
+    .map(function() {
+      return $(this).getVersion("th");
+    }).toArray();
+}
+
+function getEditedVersions() {
+  return $("thead th.edit:visible")
+    .map(function() {
+      return $(this).getVersion("th");
+    }).toArray();
+}
+
+function updateUrl() {
+  window.history.pushState("object or string","",Traduxio.getId()+getUrlOptions(getOpenedVersions(),getEditedVersions()));
 }
 
 function changeVersion(oldVersion, newVersion) {
@@ -384,38 +489,83 @@ function changeVersion(oldVersion, newVersion) {
   updateUrl();
 }
 
+function toggleHeader(item) {
+  $(item).slideToggle(200);
+  closeTop(item);
+}
+
 function toggleAddVersion() {
-  $("#addPanel").slideToggle(200);
-  $("#removePanel").slideUp(200);
+  toggleHeader("#addPanel");
 }
 
 function toggleRemoveDoc() {
-  $("#removePanel").slideToggle(200);
-  $("#addPanel").slideUp(200);
+  toggleHeader("#removePanel");
+}
+
+function toggleGlossaryEntry() {
+  toggleHeader("#addGlossaryForm");
+}
+
+function closeTop(except) {
+  $(".top form, #removePanel").not(except).slideUp(200);
+}
+
+function addGlossarySubmit() {
+  var id = $("#hexapla").data("id");
+  var form=$("#addGlossaryForm");
+  var glossaryEntry={
+    src_sentence:$("[name='src']",form).val(),
+    src_language:$("[name='src_language']",form).val(),
+    target_sentence:$("[name='target']",form).val(),
+    target_language:$("[name='target_language']",form).val()
+  };
+  if (glossaryEntry.src_sentence && glossaryEntry.src_language &&
+    glossaryEntry.target_sentence && glossaryEntry.target_language) {
+    var url="work/"+id+"/glossary/"+glossaryEntry.src_language+"/"+encodeURIComponent(glossaryEntry.src_sentence)+"/"+glossaryEntry.target_language;
+    $.ajax({
+      type: "PUT",
+      url: url,
+      dataType:"json",
+      contentType: 'application/json',
+      data: glossaryEntry.target_sentence
+    }).done(function(result) {
+      closeTop();
+      if ("ok" in result) {
+        addGlossaryEntry(glossaryEntry);
+      }
+    }).fail(function() { alert("fail!"); });
+  } else {
+    alert("missing data");
+  }
+  return false;
 }
 
 function toggleEditDoc() {
-  $("#work-info").slideToggle(200);
+  toggleHeader("#work-info");
 }
 
 function addPanelFormUpdate() {
   if($("#addPanel input[name='add-type']:checked").val()=="original") {
     $("#addPanel input[name='work-creator']").prop("disabled",true);
+    $("#addPanel select[name='language']").prop("disabled",true);
   } else {
     $("#addPanel input[name='work-creator']").prop("disabled",false);
+    $("#addPanel select[name='language']").prop("disabled",false);
   }
 }
 
 function addVersion() {
-  var id = getDocId(),
+  var id = Traduxio.getId(),
       ref,
       data = {};
-  if ($("#addPanel input[name='add-type']:checked").val()=="original") {
+  if ($("input[name='add-type']:checked",this).val()=="original") {
     ref="original";
     data.original=true;
   } else {
-    ref = $("#addPanel").find("input[name='work-creator']").val();
+    ref = $("input[name='work-creator']",this).val();
     data.creator=ref;
+    data.language=$("select[name='language']",this).val();
+    if (!data.language) return false;
   }
   if(ref != "") {
     request({
@@ -425,7 +575,10 @@ function addVersion() {
       dataType: "json",
       data: JSON.stringify(data)
     }).done(function(result) {
-      window.location.href = id + "?edit=" + ref;
+      var version=result.version || ref;
+      var edited=getEditedVersions();
+      edited.push(version);
+      window.location.href = id + getUrlOptions(getOpenedVersions(),edited);
     });
   }
   return false;
@@ -435,7 +588,7 @@ function removeDoc() {
   if(confirm(getTranslated("i_confirm_delete"))) {
     request({
       type: "DELETE",
-      url: "work/"+getDocId(),
+      url: "work/"+Traduxio.getId(),
       contentType: 'text/plain'
     }).done(function() {
       window.location.href = "./";
@@ -457,10 +610,10 @@ function clickDeleteVersion() {
 }
 
 function deleteVersion(version) {
-  var id = getDocId();
+  var id = Traduxio.getId();
   request({
     type: "DELETE",
-    url: "work/"+id+"/"+version,
+    url: "work/"+id+"/"+encodeURIComponent(version),
     contentType: 'text/plain'
   }).done(function() {
     window.location.reload(true);
@@ -529,19 +682,34 @@ function saveUnit(callback) {
   }
 }
 
+function checkValid(field,value) {
+  var mandatoryFields=["language"]
+  if (mandatoryFields.indexOf(field)!=-1 && !value) {
+    return false;
+  }
+  return true;
+}
+
 function saveMetadata() {
   var elem=$(this);
   var inputType=elem.prop("tagName");
   if(inputType!="INPUT" || elem.hasClass("dirty")) {
-    var id = getDocId();
-    var ref = elem.closest("th").data("version");
-    var modify={};
     var newValue=elem.val();
     var name=elem.prop("name");
+    if (!checkValid(name,newValue)) {
+      //abort
+      if ($(this).hasClass("language")) {
+        $(this).val($(this).data("language"));
+      }
+      return;
+    }
+    var modify={};
     modify[name]=newValue;
+    var id = Traduxio.getId();
+    var ref = elem.closest("th").data("version");
     request({
       type: "PUT",
-      url: "work/"+id+"/"+ref,
+      url: "work/"+id+"/"+encodeURIComponent(ref),
       contentType: 'text/plain',
       data: JSON.stringify(modify),
       dataType: "json"
@@ -555,18 +723,210 @@ function saveMetadata() {
       }
       if (inputType=="INPUT") {
         var displayText=newValue;
-        if (name=="work-creator" && ref=="original") displayText=i18n["i_no_author"];
+        if (!displayText && name=="work-creator" && ref=="original") displayText=Traduxio.getTranslated("i_no_author");
         target.text(displayText);
         elem.removeClass("dirty");
       }
       if (name=="language") {
         var lang_id = elem.val();
+        elem.data("language",lang_id);
         fixLanguages(target.data("id",lang_id));
         fixLanguages($(".pleat.close[data-version='" + ref + "']")
           .find(".metadata.language").data("id", lang_id).text(lang_id));
+        fixScriptDirection(ref,lang_id);
       }
     });
   }
+}
+
+function deleteGlossaryEntry(glossaryEntry,language) {
+  var id = $("#hexapla").data("id");
+  if (glossaryEntry.src_sentence && glossaryEntry.src_language && language) {
+    var url="work/"+id+"/glossary/"+glossaryEntry.src_language+"/"+encodeURIComponent(glossaryEntry.src_sentence)+"/"+language;
+    $.ajax({
+      type: "DELETE",
+      url: url,
+      dataType:"json",
+      contentType: 'application/json'
+    }).done(function(result) {
+      if ("ok" in result) {
+        glossaryEntry.target_language=language;
+        removeGlossary(glossaryEntry);
+      }
+    }).fail(function() { alert("fail!"); });
+  }
+}
+
+function openContextMenu(glossaryEntry,position) {
+  var sentence=glossaryEntry.src_sentence;
+  if (sentence.length<50) {
+    var menu=$("<div/>").addClass("context-menu");
+    menu.append($("<div/>").addClass("item concordance")
+      .append(getTranslated("i_search_concordance")+": <em>"+sentence+"</em>"));
+    if(glossaryEntry.targets) {
+      $.each(glossaryEntry.targets,function(language,sentence) {
+        menuItem=$("<div/>").addClass("glossaryEntry").append("<em>"+language+"</em>:"+sentence);
+        menuItem.append($("<span/>").append("x").addClass("action").on("click",function() {
+          deleteGlossaryEntry(glossaryEntry,language);
+        }));
+        menuItem.append($("<span/>").append("e").addClass("action").on("click",function() {
+          editGlossaryEntry(glossaryEntry,language);
+        }));
+        menu.append(menuItem);
+      });
+    }
+    menu.append($("<div/>").addClass("glossary").append(
+      getTranslated("i_glossary_add_translation","<em>"+sentence+"</em>"))
+    );
+    menu.css(position);
+    $("body .context-menu").remove();
+    $("body").append(menu);
+    $(".context-menu .concordance").on("click",function() {
+      $("form.concordance #query").val(sentence);
+      $("form.concordance #language").val(glossaryEntry.src_language);
+      $("form.concordance").submit();
+    }).addClass("action");
+    $(".context-menu .glossary").on("click",function() {
+      editGlossaryEntry(glossaryEntry);
+    }).addClass("action");
+    $(".context-menu .action").on("click",function() {
+      $("body .context-menu").remove();
+    });
+  }
+};
+
+function unitContent(unit) {
+  return  $("textarea",unit).val();
+}
+
+function fillUnit(unit,content) {
+  var oldVal=unitContent(unit);
+  if (oldVal!=content) {
+    var element=$("textarea",unit).val(content);
+    autoSize.apply(element);
+    browseGlossary(displayGlossary,element);
+    return true;
+  }
+  return false;
+}
+
+$.fn.queueCss=function(properties) {
+  $(this).queue(function (next) {
+    $(this).css(properties);
+    next();
+  });
+};
+
+function highlightUnit(unit,color) {
+  var version=unit.getVersion("td");
+  var element=unit.isEdited() ? $("textarea",unit) : $(".text",unit);
+  if (element.is(":visible")) {
+    element.css({"background-color":color}).delay(1000).queueCss({"background-color":""});
+    find(version).css({"border-color":color,"border-width":"0px 2px"}).clearQueue().delay(1000).queueCss({"border-color":"","border-width":""});
+  } else {
+    findPleat(version).css({"border-color":color,"border-width":"0px 2px"}).clearQueue().delay(1000).queueCss({"border-color":"","border-width":""});
+  }
+}
+
+function createUnit(content) {
+  var newUnit = $("<div/>").addClass("unit");
+  var text = $("<div>").addClass("text");
+  newUnit.append(text);
+  var textarea=$("<textarea>").addClass("autosize");
+  newUnit.prepend(textarea);
+  fillUnit(newUnit,content);
+  return newUnit;
+}
+
+function findUnit(version,line) {
+  var unit=$("tr[data-line='"+line+"'] .unit[data-version='"+version+"']");
+  if (unit.length==0) return null;
+  if (unit.length==1) return unit;
+  return false;
+}
+
+function findLine(line) {
+  return $("tr[data-line='"+line+"']");
+}
+
+function updateOnScreen(version,line,content,color) {
+  var highlight=true;
+  var unit=findUnit(version,line);
+  if (unit) {
+    if (content !== null) {
+      if (!fillUnit(unit,content)) return false;
+    } else {
+      //join
+      var units=findUnits(version);
+      var previousUnit=units.eq(units.index(unit)-1);
+      var previousContent=previousUnit.find("textarea").val();
+      var thisContent=unit.find("textarea").val();
+      fillUnit(previousUnit,previousContent+"\n"+thisContent);
+      var thisLine=unit.getLine();
+      var prevLine=previousUnit.getLine();
+      var size=getSize(unit);
+      var newSpan=thisLine-prevLine+size;
+      previousUnit.closest("td").prop("rowspan",newSpan);
+      previousUnit.find(".text").css("min-height",(newSpan*32)+"px");
+      unit.closest("td").remove();
+      createSplits(previousUnit);
+      positionSplits();
+      unit=previousUnit;
+    }
+  } else {
+    if (content != null) { //otherwise, it is a join, which is already joined here
+      //potential split
+      var units=findUnits(version);
+      units.each(function() {
+        var cLine=$(this).getLine();
+        if (typeof cLine != "undefined") {
+          if (cLine<line) {
+            unit=$(this);
+          } else {
+            return false;
+          }
+        }
+      });
+      if (unit) {
+        // split
+        var size=getSize(unit);
+        var initialLine=unit.getLine();
+        var newUnit=createUnit(content).attr("data-version",version);
+        var direction=unit.css("direction");
+        if (direction) newUnit.css("direction",direction);
+        if (unit.isEdited()) newUnit.addClass("edit");
+        var newTd=$("<td>").addClass("pleat open").attr("data-version",version)
+          .append($("<div>").addClass("box-wrapper").append(newUnit));
+        newUnit.setSize(size-(line-initialLine));
+        unit.setSize(line-initialLine);
+        var versions=getVersions();
+        var versionIndex=versions.indexOf(version);
+        if (versionIndex==0) {
+          findLine(line).prepend(newTd);
+        } else {
+          var ok=false;
+          findLine(line).find(".unit").each(function() {
+            var currVersion=$(this).data("version");
+            if (versions.indexOf(currVersion) > versions.indexOf(version)) {
+              $(this).closest("td").before(newTd);
+              ok=true;
+              return false;
+            }
+          });
+          if (!ok) {
+            findLine(line).append(newTd);
+          }
+        }
+        createSplits(unit);
+        createJoins(newUnit);
+        createSplits(newUnit);
+        positionSplits();
+        $(".tosplit").removeClass("tosplit");
+        unit=unit.add(newUnit); //to highlight both units
+      }
+    }
+  }
+  return unit;
 }
 
 function getPreviousUnit(unit) {
@@ -578,7 +938,7 @@ function getPreviousUnit(unit) {
 var editOnServer = function(content, reference) {
   return request({
     type: "PUT",
-    url: "version/"+getDocId()+"?"+ $.param(reference),
+    url: "version/"+Traduxio.getId()+"?"+ $.param(reference),
     contentType: "text/plain",
     data: content
   });
@@ -590,31 +950,24 @@ $(document).ready(function() {
   $("#hexapla").on("click", ".button.show", toggleShow);
 
   $("#hexapla").on("click", ".button.edit-license", function() {
-    window.location=getPrefix()+"/works/license/"+getDocId()+'/'+$(this).getVersion("th");
+    window.location=getPrefix()+"/works/license/"+Traduxio.getId()+'/'+$(this).getVersion("th");
   });
 
   $("input.edit").on("click",toggleEdit);
 
   $("tr").on("mouseup select",".unit", function (e) {
     //requires jquery.selection plugin
-    var txt=$.selection(),language;
+    var txt=$.selection().trim(),language;
     var unit=$(this);
     if (txt && (language=unit.getLanguage())) {
       e.stopPropagation();
-      var menu=$("<div/>").addClass("context-menu");
-      menu.append($("<div/>").addClass("item concordance")
-        .append(getTranslated("i_search_concordance")+": <em>"+txt+"</em>"));
-
-      menu.css({top:e.pageY,left:e.pageX});
-      $("body .context-menu").remove();
-      $("body").append(menu);
-      $(".context-menu .concordance").on("click",function() {
-        $("form.concordance #query").val(txt);
-        $("form.concordance #language").val(language);
-        $("form.concordance").submit();
-      });
-      $(".context-menu .item").on("click",function() {
-        $("body .context-menu").remove();
+      openContextMenu({
+        src_sentence:txt,
+        src_language:$(this).getLanguage(),
+        target_language:$("td.pleat.open .unit.edit").getLanguage() //use first edited translation
+      },{
+        top:e.pageY+10,
+        left:e.pageX
       });
     }
   });
@@ -630,25 +983,14 @@ $(document).ready(function() {
   $("tr").on("click", ".join", function(e) {
     e.stopPropagation();
     var unit=$(this).closest(".unit");
-    var version=unit.getVersion("td.open");
-    var units=findUnits(version);
-    var previousUnit=units.eq(units.index(unit)-1);
-    if (previousUnit) {
+    var version=unit.getVersion("td");
+    if (findUnits(version).index(unit)>0) {
       editOnServer("null", $(this).closest(".unit").getReference())
         .done(function() {
-          var previousContent=previousUnit.find("textarea").val();
-          var thisContent=unit.find("textarea").val();
-          previousUnit.find("textarea").val(previousContent+"\n"+thisContent);
-          var thisLine=unit.getLine();
-          var prevLine=previousUnit.getLine();
-          var size=getSize(unit);
-          var newSpan=thisLine-prevLine+size;
-          previousUnit.closest("td").prop("rowspan",newSpan);
-          previousUnit.find(".text").css("min-height",(newSpan*32)+"px");
-          unit.closest("td").remove();
-          createSplits(previousUnit);
-          positionSplits();
-      });
+          updateOnScreen(version,unit.getLine(),null);
+        });
+    } else {
+      $(this).remove();
     }
   });
 
@@ -666,44 +1008,7 @@ $(document).ready(function() {
       version:version,
       line: line
     }).done(function() {
-      var size=getSize(unit);
-      var initialLine=unit.getLine();
-      var newUnit=$("<div/>").append($("<textarea>").addClass("autosize"));
-      var text=$("<div>").addClass("text");
-      newUnit.append(text);
-      autoSize.apply($("textarea",newUnit));
-      newUnit.addClass("unit edit").attr("data-version",version);
-      $(this).remove();
-      var newTd=$("<td>").addClass("pleat open").attr("data-version",version)
-        .append($("<div>").addClass("box-wrapper").append(newUnit));
-      newUnit.setSize(size-(line-initialLine));
-      unit.setSize(line-initialLine);
-      var versions=getVersions();
-      var versionIndex=versions.indexOf(version);
-      if (versionIndex==0) {
-        $("tr#line-"+line).prepend(newTd);
-      } else {
-        var ok=false;
-        $("tr#line-"+line+" .unit").each(function() {
-          var currVersion=$(this).data("version");
-          if (versions.indexOf(currVersion) > versions.indexOf(version)) {
-            $(this).closest("td").before(newTd);
-            ok=true;
-            return false;
-          }
-          if (versions.indexOf($(this).data("version")) +1 == versions.length) {
-            $(this).closest("td").before(newTd);
-          }
-        });
-        if (!ok) {
-          $("tr#line-"+line).append(newTd);
-        }
-      }
-      createSplits(unit);
-      createJoins(newUnit);
-      createSplits(newUnit);
-      positionSplits();
-      $(".tosplit").removeClass("tosplit");
+      updateOnScreen(version,line,"");
     });
   });
 
@@ -714,8 +1019,13 @@ $(document).ready(function() {
   $("thead").on("change","select.editedMeta", saveMetadata);
   $("#hexapla").on("click","span.delete", clickDeleteVersion);
 
-  $(".editedMeta").each(function() {
-    $(this).prop("placeholder",$(this).prop("title"));
+  $("input[type=text],select").each(function() {
+    if (!$(this).prop("placeholder")) {
+      $(this).prop("placeholder",$(this).prop("title"));
+    }
+    if (!$(this).prop("title")) {
+      $(this).prop("title",$(this).prop("placeholder") || $(this).attr("placeholder"));
+    }
   });
 
   $(".top").on("click", "#addVersion", toggleAddVersion);
@@ -727,10 +1037,14 @@ $(document).ready(function() {
   $(".top").on("click", "#removeDoc", toggleRemoveDoc);
   $("#removePanel").on("click", removeDoc);
 
+  $("#addGlossaryForm").on("submit", addGlossarySubmit);
+
   var versions=getVersions();
   const N = versions.length;
   for (var i = N-1; i>=0; i--) {
-    addPleat(versions[i]);
+    var version=versions[i];
+    addPleat(version);
+    fixScriptDirection(version);
   }
   if ($("th.pleat.opened,th.pleat.edited").length==0) {
     //hide all translations except the 2 first ones
@@ -743,9 +1057,9 @@ $(document).ready(function() {
 
   fixWidths();
 
-  fillLanguages($("select[name=language]"));
+  fillLanguages($("select.language"));
 
-  if(N==0) {
+  if(!Traduxio.getId()) {
     $("#work-info").show().on("submit",function(e) {
       e.preventDefault();
       var data={};
@@ -762,6 +1076,9 @@ $(document).ready(function() {
       }).done(function(result) {
         if (result.id) {
           window.location.href=result.id;
+          var url=result.id;
+          if (result.version) url+="?edit="+result.version;
+          window.location.href=url;
         } else {
           alert("fail");
         }
@@ -777,7 +1094,7 @@ $(document).ready(function() {
       ["work-creator","language","title","date"].forEach(function(field) {
         data[field]=$("[name='"+field+"']","#work-info").val();
       });
-      var id=getDocId();
+      var id=Traduxio.getId();
       data.original=$("[name=original-work]","#work-info").prop("checked");
       request({
         type:"PUT",
@@ -796,13 +1113,105 @@ $(document).ready(function() {
     $(".button.hide").remove();
   }
 
+  Traduxio.activity.register("edit",function(edit) {
+    if (edit.version) {
+      var version=find(edit.version);
+        switch (edit.action) {
+          case "translated":
+            if ("line" in edit && "content" in edit) {
+              edit.message="Version <em>"+edit.version+"</em> modifiée à la ligne <a href='#"+edit.line+"'>"+edit.line+"</a>";
+              if(!edit.isPast && version.length>0) {
+                var unit=updateOnScreen(edit.version,edit.line,edit.content,edit.me?edit.color:null);
+                if (unit && edit.color) {
+                  highlightUnit(unit,edit.color);
+                }
+              }
+            }
+            break;
+          case "edited":
+            if (edit.key=="creator") {
+              edit.message="version "+edit.version+" renomée";
+              if (!edit.isPast) edit.message+=", svp rafraîchir la page pour voir les changements";
+            } else {
+              edit.message="informations de la version "+edit.version+" modifiées";
+              if (!edit.isPast) edit.message+=", svp rafraîchir la page pour voir les changements";
+            }
+            break;
+          case "created":
+            edit.message="nouvelle version "+edit.version+" créée";
+            if (!edit.isPast) edit.message+=", svp rafraîchir la page pour voir les changements";
+            break;
+          case "deleted":
+            edit.message="version "+edit.version+" supprimée";
+            if (!edit.isPast) edit.message+=", svp rafraîchir la page pour voir les changements";
+            break;
+        }
+    }
+    if (edit.message && Traduxio.chat && Traduxio.chat.addMessage) {
+      Traduxio.chat.addMessage(edit);
+    }
+  });
+
+  browseGlossary(displayGlossaryAllText);
+
+  $("#hexapla").on("click",".glossary",function(e) {
+    var l=$(this).getLanguage();
+    var s=$(this).data("sentence");
+    var entry=getGlossaryEntry(l,s);
+    openContextMenu(entry,{top:e.pageY+10,left:e.pageX});
+  });
+
+  Traduxio.activity.register("glossary",function(edit) {
+    if (edit.entry) {
+      switch (edit.action) {
+        case "added":
+          edit.message="Entrée du glossaire <em>"+
+            edit.entry.src_language+":"+
+            edit.entry.src_sentence+"</em>"+" -> "+
+            edit.entry.target_language+":"+
+            edit.entry.target_sentence+"</em>"+
+            " ajoutée";
+          if (!edit.isPast) addGlossaryEntry(edit.entry);
+          break;
+        case "modified":
+          edit.message="Entrée du glossaire <em>"+
+            edit.entry.src_language+":"+
+            edit.entry.src_sentence+"</em>"+" -> "+
+            edit.entry.target_language+":"+
+            edit.entry.was+"</em>"+
+            " modifiée en <em>"+edit.entry.target_sentence+"</em>";
+          if (!edit.isPast) addGlossaryEntry(edit.entry);
+          break;
+        case "deleted":
+          edit.message="Entrée du glossaire <em>"+
+            edit.entry.src_language+":"+
+            edit.entry.src_sentence+"</em>"+" -> "+
+            edit.entry.target_language+":"+
+            edit.entry.was+"</em>"+
+            " supprimée";
+          if (!edit.isPast) removeGlossary(edit.entry);
+          break;
+      }
+
+    }
+    if (edit.message && Traduxio.chat && Traduxio.chat.addMessage) {
+      Traduxio.chat.addMessage(edit);
+    }
+
+  });
 });
 
 $(window).load(function() {
+  $(window).on("beforeunload",function() {
+    if ($(".dirty").length>0) {
+      return false;
+    }
+  });
   if (window.location.hash) {
     $("tr"+window.location.hash+" .unit").addClass("highlight");
     setTimeout(function() {
       $("tr"+window.location.hash+" .unit").removeClass("highlight");
     },500);
   }
+  $("div.top").appendTo("#header");
 });

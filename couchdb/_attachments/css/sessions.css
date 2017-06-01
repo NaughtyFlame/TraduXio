@@ -1,0 +1,45 @@
+#sessions {
+  border-color:#000000;
+  border-style:solid;
+  border-radius: 5px;
+  background:#fff;
+  position:fixed;
+  top:3em;
+  right:15px;
+  width:20%;
+  min-width:150px;
+  z-index:400;
+  bottom:2em;
+}
+
+#sessions h1 {
+  font-size:1em;
+  background:#AAAAAA;
+}
+
+#sessions h1:first-child {
+  cursor:pointer;
+}
+
+#sessions .colorcode {
+  border-color:#000000;
+  border-style:solid;
+  margin:5px;
+  padding:0px 5px;
+}
+
+#show-sessions {
+  width:32px;
+  height:32px;
+  margin:2px 5px;
+  background-image:url("../img/users.png");
+  background-size: 32px 32px;
+  cursor:pointer;
+  float:right;
+}
+
+.anonymous {
+  font-style:italic;
+  font-weight:normal !important;
+  text-shadow:1px gray;
+}

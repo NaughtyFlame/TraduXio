@@ -2,17 +2,12 @@ table#hexapla {
   border-collapse:separate;
   border-spacing:0;
   empty-cells:show;
-  height:80%;
-  margin: 0 0.5em;
+  padding: 15px;
+  box-sizing:border-box;
 }
 
 table#hexapla.full {
-  margin: 0 auto;
-  width:99%;
-}
-
-#hexapla thead tr {
-  height:30%;
+  width:100%;
 }
 
 body {
@@ -31,7 +26,7 @@ body {
 #hexapla thead th {
   border-radius:15px 15px 0px 0px;
   border-bottom:0px;
-  position:relative;
+  padding:5px 5px 2em 5px;
   color: #C11C1C;
   border-color: darkgrey;
 }
@@ -43,7 +38,7 @@ body {
 #hexapla tfoot th {
   border-radius:0px 0px 15px 15px;
   border-top:0px;
-  padding:5px;
+  padding:2em 5px 5px 5px;
   border-color: darkgrey;
 }
 
@@ -65,6 +60,10 @@ body {
 
 div.metadata {
   padding:0.5em 2em;
+}
+
+div.metadata::after {
+  content: '\200b';
 }
 
 .edit div.metadata {
@@ -124,10 +123,6 @@ div.creator {
 .top button {
   padding-left: 5px;
   padding-right: 5px;
-}
-
-.top .removeDoc, .top .addVersion {
-  margin-top: -3px;
 }
 
 .top form h3 {
@@ -252,14 +247,27 @@ tr.fulltext {
   display:none;
 }
 
-.unit.edit textarea,
-.edit textarea.fulltext {
+#hexapla tr.fulltext td.pleat.open {
+  padding-top: 3em;
+  padding-bottom: 3em;
+}
+
+.edit textarea {
   display:inherit;
+  overflow: auto;
 }
 
 textarea.autosize {
   overflow: hidden;
   position: absolute;
+}
+
+tr.fulltext .unit .text {
+  min-height: 15em;
+}
+
+.edit textarea.fulltext {
+  overflow: auto;
 }
 
 .unit.edit div.text {
@@ -275,7 +283,7 @@ textarea.autosize {
   border:1px solid black;
   z-index:99;
   right:0px;
-  display: none;
+  visibility: hidden;
 }
 
 #hexapla .unit .join{
@@ -284,7 +292,8 @@ textarea.autosize {
 
 #hexapla .unit.edit .split,
 #hexapla .unit.edit .join {
-  display: inline;
+  visibility: visible;
+  right: -32px;
 }
 
 .dirty {
@@ -329,10 +338,6 @@ textarea.autosize {
 
 .license {
   left:10px;
-}
-
-.edit .license {
-  display:none;
 }
 
 .button.hide {
@@ -383,6 +388,7 @@ textarea.autosize {
   margin: 0 0.5em 0.5em;
   font-size: 0.75em;
   border-radius: 0.5em;
+  clear: both;
 }
 
 .top  h1{
@@ -397,12 +403,6 @@ textarea.autosize {
   display:none
 }
 
-#nav li.works {
-  border-top: 1px darkgrey solid;
-  background-color: #888;
-  border-bottom: 6px #888 solid;
-}
-
 div.context-menu {
   position:absolute;
   background: #AAAAAA;
@@ -410,12 +410,93 @@ div.context-menu {
   border:#000000;
 }
 
-div.context-menu div.item {
+div.context-menu div {
   padding:2px;
   cursor:default;
 }
 
-div.context-menu div:hover {
+div.context-menu span.action {
+  float:right;
+  padding:0px 0.5em;
+}
+
+div.context-menu .action:hover {
   background:#333333;
   color:#AAAAAA;
+}
+
+.glossary {
+    cursor:pointer;
+    border-bottom: 1px dotted #08C;
+}
+
+.glossary:hover {
+    background-color: #FFD;
+}
+
+.temp {
+    font-style: italic;
+}
+
+div.unit *::selection {
+  background:#333;
+  color:#fff;
+}
+
+div.unit *::-moz-selection {
+  background:#333;
+  color:#fff;
+}
+
+@media print {
+
+  .pleat.close,
+  tfoot div.link,
+  input[type=button], #hexapla .pleat.open .button,
+  .unit.edit textarea, .edit .editedMeta,
+  .top a.workButton {
+    display: none;
+  }
+
+  .edit div.metadata,
+  .unit.edit div.text {
+    display: inherit !important;
+    visibility: visible;
+  }
+
+  #hexapla th,
+  #hexapla td {
+    background-color: white;
+    border-style: none;;
+  }
+
+  #hexapla th.pleat.close,
+  #hexapla td.pleat.close {
+    display: none !important;
+  }
+
+  #hexapla td.pleat.open,
+  #hexapla td.pleat.open .box-wrapper,
+  #hexapla div.unit .text {
+    padding:2px;
+  }
+
+  #hexapla .unit.edit .join,
+  #hexapla .unit.edit .split {
+    display: none;
+  }
+
+  #hexapla th.pleat.open .relative-wrapper {
+    padding: 0px;
+    margin: 0px;
+  }
+
+  #hexapla {
+    margin-top: 2em;
+  }
+
+  #hexapla div.unit .text {
+    padding: 5px;
+  }
+
 }

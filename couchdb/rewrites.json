@@ -3,13 +3,14 @@
   "to": "_list/concordance/concordance",
   "query": {
     "include_docs": "true",
-    "limit":"100"
+    "stale":"update_after"
   }
 },{
   "from": "languages",
   "to": "_view/languages",
   "query": {
-    "group": "true"
+    "group": "true",
+    "stale":"update_after"
   }
 },{
   "from": "works/version/:id",
@@ -19,7 +20,8 @@
   "to": "_show/copyright"
 },{
   "from": "works",
-  "to": "_list/works/works"
+  "to": "_list/works/works",
+  "query": {"stale":"update_after"}
 },{
   "from": "shared/*",
   "to": "*"
@@ -45,6 +47,31 @@
   "to": "_show/license/:id",
   "method": "GET"
 },{
+  "from": "works/:id/print/:version",
+  "to": "_show/text/:id",
+  "method": "GET"
+},{
+  "from": "glossary/:id",
+  "to": "_update/glossary/:id",
+  "method": "POST"
+},{
+  "from": "works/work/:id/glossary/:src_language/:src_sentence/:target_language",
+  "to": "_update/glossary/:id"
+},{
+  "from": "works/:id/presence",
+  "to": "_update/presence/:id"
+},{
   "from": "",
   "to": "_show/welcome"
+},{
+  "from":"works/:id/chat",
+  "method":"POST",
+  "to":"_update/chat/:id"
+},{
+  "from":"works/:id/activity",
+  "to":"_show/doc_activity/:id"
+},{
+  "from":"works/:id/changes/:seq",
+  "to":"../../_changes",
+  "query":{"filter":"traduxio/docid","feed":"longpoll","since":":seq"}
 }]

@@ -1,13 +1,13 @@
 $.fn.concordancify = function() {
 
-  default_language=$("body").data("language") || currentLanguage;
+  default_language=$("html").prop("lang") || currentLanguage;
   default_query=$("body").data("query") || "";
 
   var search = $("#nav").data("i_search");
 
   this.append('<input id="query" type="search" name="query" placeholder="' + search + '" value="'
     +  default_query + '" />');
-  this.append('<input id="submit" type="submit" value="Search"/>');
+  this.append('<input id="submit" type="submit" value="'+getTranslated("i_search")+'"/>');
   this.append('<select id="language" name="language"/>');
 
   var form=this;
@@ -43,7 +43,7 @@ $.fn.concordancify = function() {
 };
 
 var languagesNames;
-var currentLanguage='fr';
+var currentLanguage='en';
 
 function getLanguageName(id,target) {
   var result=id;
@@ -87,23 +87,60 @@ function fixLanguages(container) {
     if (container) {
       var language=$(container).find(".language").andSelf().filter(".language");
     } else {
-      language=$(".language");
+      language=$(".language").not("select");
     }
     language.each(function() {
-      var lang=this;
-      var langID=$(lang).data("id");
-      var langName=getLanguageName(langID);
-      if ($(lang).is(".expand")) {
-        $(lang).text(langName);
-        $(lang).prop('title',langID);
-      } else {
-        $(lang).prop('title',langName);
+      var lang=$(this);
+      var langID=lang.data("id");
+      if (langID) {
+        var langName=langID?getLanguageName(langID):"";
+        if (lang.is(".expand")) {
+          lang.text(langName);
+          lang.prop('title',langID);
+        } else {
+          lang.prop('title',langName);
+        }
       }
     });
   });
 }
 
+function getTranslated(name) {
+  var args=Array.slice ? Array.slice(arguments) : Array.prototype.slice.call(arguments);
+  args.shift();
+  //show function only sends requested i18n elements, so need to modify the
+  //js_i18n_elements array to get them here (and load them inside the template)
+  var translation=i18n[name] || name;
+  args.forEach(function(arg,i) {
+    translation=translation.replace("{"+i+"}",arg);
+  });
+  return translation;
+}
+
 $(document).ready(function() {
   fixLanguages();
   $("form.concordance").concordancify();
+  $("#nav li."+$(document.body).attr("id")).addClass("active");
 });
+
+Traduxio=$.extend({},{
+    version:"1.0",
+    getPrefix:getPrefix,
+    getLanguagesNames:getLanguageNames,
+    getLanguageName:getLanguageName,
+    getTranslated:getTranslated,
+    addCss:function(name) {
+      $("<link/>", {
+         rel: "stylesheet",
+         type: "text/css",
+         href: Traduxio.getPrefix()+"/shared/css/"+name+".css"
+      }).appendTo("head");
+    },
+    getId:function() {
+      return $("#hexapla").data("id");
+    },
+    getSeqNum:function() {
+      return $(document.body).data("seq");
+    }
+  }
+);

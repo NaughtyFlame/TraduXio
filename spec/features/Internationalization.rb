@@ -14,7 +14,7 @@ feature 'Localization' do
         expect(page).to have_content 'Original work'
     end
 
-    scenario 'Portugese' do
+    scenario 'Portuguese' do
         prefer_language('pt-br,en-us,en')
         visit '/works/'
         find("a",:text=>'Adicionar uma obra').trigger(:click)

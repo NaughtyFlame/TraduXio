@@ -4,6 +4,28 @@
   {{i_language_}}
 </div>
 <table class="concordance">
+  {{#glossary_entries}}
+    <tr class="glossary">
+      <td>{{{context}}}</td>
+      <td>{{{mapping}}}</td>
+      <td class="metadata">
+        {{#original}} 
+        <div class="original">
+          <div class="creator">{{creator}}</div>
+          <div class="title"><a href="{{work_id}}">{{title}}</a></div>
+          <div>{{#publisher}}<span class="publisher">{{publisher}}</span>{{/publisher}}
+          {{#date}}{{#publisher}}, {{/publisher}}<span class="data">{{date}}</span>{{/date}}</div>
+        </div>
+        {{/original}}
+        {{#glossary_entry}}
+        <div class="glossary">
+          {{#author}}<div class="author">Trad. {{author}}</div>{{/author}}
+          <div>{{#date}}<span class="data">{{date}}</span>{{/date}}</div>
+         </div>
+        {{/glossary_entry}}
+      </td>
+    </tr>
+  {{/glossary_entries}}
   {{#occurrences}}
     <tr>
       <td>{{{context}}}</td>

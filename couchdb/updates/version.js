@@ -1,4 +1,6 @@
 function(old, req) {
+  var doc=old;
+  //!code lib/traduxio.js
 
   function Work() {
     this.data = old;
@@ -40,7 +42,15 @@ function(old, req) {
       var joined_content = previous_line_content + "\n" + old_content;
       work.setContent(VERSION_ID, previous_line, joined_content);
       new_content = null;
+      //Traduxio.addActivity(this.data.edits,{action:"joined",version:VERSION_ID,line:LINE});
+    } else {
+      if (old_content==null) {
+        //Traduxio.addActivity(this.data.edits,{action:"split",version:VERSION_ID,line:LINE});
+      } else {
+      }
     }
+    doc.edits=doc.edits || [];
+    Traduxio.addActivity(doc.edits,{action:"translated",version:VERSION_ID,line:LINE,old:old_content,content:new_content});
     work.setContent(VERSION_ID, LINE, new_content);
     return [work.data, VERSION_ID + " updated at line " + LINE];
   }

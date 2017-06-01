@@ -1,19 +1,22 @@
 function(o, req) {
-  // !code lib/mustache.js
-  // !code lib/hexapla.js
-  // !code lib/path.js
-  // !code localization.js
 
   var js_i18n_elements=[
     "i_read","i_edit","i_show","i_search_concordance",
-    "i_confirm_delete","i_delete_version","i_delete_original", "i_no_title", "i_no_author"
+    "i_confirm_delete","i_delete_version","i_delete_original", "i_no_title", "i_no_author",
+    "i_glossary_add_translation"
   ];
+
+  var doc=o;
+  // !code lib/traduxio.js
+  // !code lib/mustache.js
+  // !code lib/hexapla.js
+
   var i18n=localized();
 
   function getTextLength() {
     if (o.text)
       return o.text.length;
-    for each (version in o.translations)
+    for each (var version in o.translations)
       return version.text.length;
   }
 
@@ -24,6 +27,7 @@ function(o, req) {
   }
   var data = {
     id: o._id,
+    seq:req.info.update_seq,
     work_title: o.title,
     display_work_title: o.title?o.title:i18n["i_no_title"],
     work_creator: o.creator,
@@ -35,13 +39,8 @@ function(o, req) {
     headers: [],
     units: [],
     rows:[],
-    lang:i18n.lang,
     i18n:i18n
   };
-  var js_i18n={};
-  js_i18n_elements.forEach(function (item) {
-    if (i18n[item]) js_i18n[item]=i18n[item];
-  });
 
   if (!newWork) {
     var hexapla = new Hexapla();
@@ -53,7 +52,7 @@ function(o, req) {
         text: o.text
       });
       data.headers.push({
-        id: "original",
+        version: "original",
         is_original: true,
         title: o.title,
         language: o.language,
@@ -64,6 +63,7 @@ function(o, req) {
         opened: (opened_versions.indexOf("original")!=-1)
       });
     }
+
     for (var t in o.translations) {
       var translation = o.translations[t];
       hexapla.addVersion({
@@ -71,7 +71,7 @@ function(o, req) {
         text: translation.text
       });
       data.headers.push({
-        id:t,
+        version:t,
         title: translation.title,
         work_creator: translation.creator || "",
         creator: t,
@@ -87,17 +87,27 @@ function(o, req) {
   }
 
   data.name="work";
+  data.page_title=data.work_creator+" : "+data.work_title;
   data.css=true;
   data.script=true;
-  data.scripts=["jquery.selection","jquery.ajax-retry"];
+  data.scripts=["jquery.selection","jquery.ajax-retry","activity","jquery.highlight"];
+  if (this.couchapp.traduxio.chat) data.scripts.push("chat");
+  if (this.couchapp.traduxio.sessions) data.scripts.push("sessions");
+  log(this.couchapp.traduxio);
   data.language=data.work_language;
   data.prefix="..";
+  if (o.glossary) {
+    var glossary=o.glossary;
+  } else {
+    glossary={};
+  }
+  delete glossary.edits;
+  data.glossary=JSON.stringify(glossary);
   data.notext=o.text ? false : true;
   data.original=o.text ? true : (newWork ? true : false);
-  data.i18n_str=JSON.stringify(js_i18n);
   if (data.headers.length==1) {
     data.justOneText=true;
-    data.fulltext=data.headers[0].raw;
+    data.version=data.headers[0].version
   }
 
   return Mustache.to_html(this.templates.work, data, this.templates.partials);

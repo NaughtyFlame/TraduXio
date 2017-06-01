@@ -123,16 +123,15 @@ def fill_input selector,value
 end
 
 def fill_field(name,value)
-  input=fill_input "[name=#{name}]",value
-  wait_for_ajax
+  input=fill_input "[name='#{name}']",value
   input
 end
 
 def fill_select(name,option)
+  debug "fill select #{name} with #{option}"
   input=find("select[name='#{name}']")
   option=input.find("option[value='#{option}']")
   select(option.text, :from => name)
-  wait_for_ajax
   input
 end
 

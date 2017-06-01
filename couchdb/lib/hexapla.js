@@ -33,12 +33,12 @@ function Hexapla() {
   };
 
   this.toHtml = function (text) {
-    return text.replace("<","&lt").replace(">","&gt;").replace(NEW_LINE, "<br/>");
+    return text.replace("<","&lt").replace(">","&gt;").replace(NEW_LINE, "<br/>\n");
   };
 
   this.getLineVersion = function(version_number, line_number) {
     var version = this.versions[version_number];
-    if (version)
+    if (version && version.text)
       var string = version.text[line_number];
     else
       string=null;

@@ -72,13 +72,14 @@ function (newDoc, oldDoc, userCtx, secObj) {
     });
   }
 
-  function testArray(array,callback) {
+  function testArray(array,callback,nullok) {
     var ok=false;
     if (isArray(array)) {
       ok=true;
       if (typeof callback=="function") {
         array.forEach(function(val) {
-          if (!callback(val)) {
+          if (!nullok && val===null) ok=false;
+          else if (!callback(val)) {
             ok=false;
           }
         });
@@ -94,10 +95,11 @@ function (newDoc, oldDoc, userCtx, secObj) {
     }
     mandatoryFields(["translations"]);
     ensureStrings(["creator","date","language","title"]);
-    ensureObjects(["translations"]);
+    ensureObjects(["translations","glossary"]);
     for (var t in newDoc.translations) {
       var translation=newDoc.translations[t];
       mandatory(translation,"text");
+      mandatory(translation,"language");
       shouldBeArray(translation,"text");
     }
   }

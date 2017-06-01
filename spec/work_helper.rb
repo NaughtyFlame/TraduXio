@@ -51,22 +51,25 @@ def create_work(options)
   edit_work options
   debug "Created #{options[:title]} – #{options[:author]}"
   if options.has_key?(:no_original) && options[:no_original] then
-    edit_translation_metadata "first",random_translation_metadata
+    trans=create_random_translation
+    edit_translation trans[:author]
   end
 end
 
 def edit_work(options)
-  debug options
-  fill_in 'Title', :with => options[:title] if options.has_key?(:title)
-  fill_in 'Author', :with => options[:author] if options.has_key?(:author)
-  fill_select 'language',options[:language] if options.has_key?(:language)
-  fill_in 'Date, year, or text century', :with=>options[:date] if options.has_key?(:date)
-  find('input[value=Save]').trigger(:click)
-  wait_for_ajax
+  within "#work-info" do
+    debug options
+    fill_in 'Title', :with => options[:title] if options.has_key?(:title)
+    fill_in 'Author', :with => options[:author] if options.has_key?(:author)
+    fill_select 'language',options[:language] if options.has_key?(:language)
+    fill_in 'Date, year, or text century', :with=>options[:date] if options.has_key?(:date)
+    find('input[value=Save]').trigger(:click)
+  end
 end
 
 def insert_work_text (text)
-  find("thead th.pleat.open input.edit",:match=>:first).trigger(:click)
+  #find("thead th.pleat.open input.edit",:match=>:first).trigger(:click)
+  debug_screen "insert text"
   find('textarea.fulltext').set((text.is_a? Array) ? text.join("\n\n") : text)
   find("thead th.pleat.open input.edit",:match=>:first).trigger(:click)
 end
