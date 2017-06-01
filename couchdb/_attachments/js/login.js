@@ -20,7 +20,8 @@ function updateUserInfo(ctx) {
     var username=$("<input>").addClass("username").attr("placeholder",Traduxio.getTranslated("i_username"));
     var password=$("<input>").addClass("password").attr("type","password").attr("placeholder",Traduxio.getTranslated("i_password"));
     var go=$("<input>").addClass("go").attr("type","submit").val(Traduxio.getTranslated("i_login"));
-    form.append(username).append(password).append(go).on("submit",function(e) {
+    var signup=$("<button>signup</button>").attr("onclick","signup()");
+    form.append(username).append(password).append(go).append(signup).on("submit",function(e) {
       e.preventDefault();
       var name=username.val();
       var passwd=password.val();
@@ -62,6 +63,29 @@ function login(name,password) {
       }
     }
   });
+}
+
+function signup(){
+  var name = $(".username").val();
+  var password = $(".password").val();
+
+  var new_user = {
+    "_id":"org.couchdb.user:"+name,
+    "name":name,
+    "password":password,
+    "roles": [
+   ],
+   "type": "user"
+  }
+
+  var json_user = JSON.stringify(new_user);
+  $.ajax({
+    url:"http://127.0.0.1:5984/_users/org.couchdb.user:"+name,
+    contentType:"application/json",
+    type:"PUT",
+    data:json_user
+  });
+  alert("un nouveau compte a été créé");
 }
 
 $(document).ready(function() {
